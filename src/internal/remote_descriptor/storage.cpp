@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-#include "internal/resources/partition_resources_base.hpp"
+#include "internal/remote_descriptor/storage.hpp"
 
-#include "internal/system/partition.hpp"
+#include "internal/remote_descriptor/manager.hpp"
+#include "internal/remote_descriptor/remote_descriptor.hpp"
 
-#include <glog/logging.h>
+namespace srf::internal::remote_descriptor {
 
-namespace srf::internal::resources {
-
-PartitionResourceBase::PartitionResourceBase(runnable::Resources& runnable, std::size_t partition_id) :
-  system::PartitionProvider(runnable, partition_id),
-  m_runnable(runnable)
+const srf::codable::EncodedObject& Storage::encoded_object() const
 {
-    CHECK_EQ(runnable.host_partition_id(), partition().host_partition_id());
+    return m_encoding;
 }
-runnable::Resources& PartitionResourceBase::runnable()
+std::size_t Storage::decrement_tokens(std::size_t decrement_count)
 {
-    return m_runnable;
+    CHECK_LE(decrement_count, m_tokens);
+    m_tokens -= decrement_count;
+    return m_tokens;
 }
-
-}  // namespace srf::internal::resources
+std::size_t Storage::tokens_count() const
+{
+    return m_tokens;
+}
+Storage::Storage(srf::codable::EncodedObject&& encoding) : m_encoding(std::move(encoding)) {}
+}  // namespace srf::internal::remote_descriptor

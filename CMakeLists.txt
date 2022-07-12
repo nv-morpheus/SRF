@@ -143,6 +143,11 @@ include(cmake/setup_iwyu.cmake)
 
 # Keep all source files sorted!!!
 add_library(libsrf
+  src/internal/data_plane/callbacks.cpp
+  src/internal/data_plane/client.cpp
+  src/internal/data_plane/resources.cpp
+  src/internal/data_plane/request.cpp
+  src/internal/data_plane/server.cpp
   src/internal/executor/executor.cpp
   src/internal/executor/iexecutor.cpp
   src/internal/memory/device_resources.cpp
@@ -156,6 +161,9 @@ add_library(libsrf
   src/internal/pipeline/pipeline.cpp
   src/internal/pipeline/port_graph.cpp
   src/internal/pipeline/resources.cpp
+  src/internal/remote_descriptor/manager.cpp
+  src/internal/remote_descriptor/remote_descriptor.cpp
+  src/internal/remote_descriptor/storage.cpp
   src/internal/resources/manager.cpp
   src/internal/resources/partition_resources.cpp
   src/internal/resources/partition_resources_base.cpp
@@ -245,7 +253,6 @@ add_library(libsrf
   # src/internal/data_plane/client_worker.cpp
   # src/internal/data_plane/client.cpp
   # src/internal/data_plane/instance.cpp
-  # src/internal/data_plane/server.cpp
   # src/internal/resources/host_resources.cpp
   # src/internal/resources/partition_resources.cpp
   # src/internal/resources/resource_partitions.cpp

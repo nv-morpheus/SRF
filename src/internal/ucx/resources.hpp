@@ -19,7 +19,9 @@
 
 #include "internal/resources/partition_resources_base.hpp"
 #include "internal/runnable/resources.hpp"
+#include "internal/system/fiber_task_queue.hpp"
 #include "internal/ucx/context.hpp"
+#include "internal/ucx/endpoint.hpp"
 #include "internal/ucx/registation_callback_builder.hpp"
 #include "internal/ucx/registration_cache.hpp"
 #include "internal/ucx/registration_resource.hpp"
@@ -32,35 +34,48 @@
 #include <cstddef>
 #include <memory>
 
+namespace srf::internal::network {
+class Resources;
+}
+
 namespace srf::internal::ucx {
 
+/**
+ * @brief UCX Resources - if networking is enabled, there should be 1 UCX Resource per "flattened" partition
+ */
 class Resources final : private resources::PartitionResourceBase
 {
   public:
-    Resources(runnable::Resources& _runnable_resources, std::size_t _partition_id);
-
-    Context& context();
-
-    const RegistrationCache& registration_cache() const
-    {
-        CHECK(m_registration_cache);
-        return *m_registration_cache;
-    }
-
-    void add_registration_cache_to_builder(RegistrationCallbackBuilder& builder);
-
-    template <typename UpstreamT>
-    auto adapt_to_registered_resource(UpstreamT upstream)
-    {
-        return srf::memory::make_unique_resource<RegistrationResource>(std::move(upstream), m_registration_cache);
-    }
+    Resources(resources::PartitionResourceBase& base, system::FiberTaskQueue& network_task_queue);
 
     using resources::PartitionResourceBase::partition;
 
+    // ucx worker associated with this partitions ucx context
+    Worker& worker();
+
+    // task queue used to run the data plane's progress engine
+    srf::core::FiberTaskQueue& network_task_queue();
+
+    // registration cache to look up local/remote keys for registered blocks of memory
+    const RegistrationCache& registration_cache() const;
+
+    // used to build a callback adaptor memory resource for host memory resources
+    void add_registration_cache_to_builder(RegistrationCallbackBuilder& builder);
+
+    // used to build device memory resources that are registered with the ucx context
+    template <typename UpstreamT>
+    auto adapt_to_registered_resource(UpstreamT upstream, int cuda_device_id)
+    {
+        return srf::memory::make_unique_resource<RegistrationResource>(
+            std::move(upstream), m_registration_cache, cuda_device_id);
+    }
+
+    std::shared_ptr<ucx::Endpoint> make_ep(const std::string& worker_address) const;
+
   private:
+    system::FiberTaskQueue& m_network_task_queue;
     std::shared_ptr<Context> m_ucx_context;
-    std::shared_ptr<Worker> m_worker_server;
-    std::shared_ptr<Worker> m_worker_client;
+    std::shared_ptr<Worker> m_worker;
     std::shared_ptr<RegistrationCache> m_registration_cache;
 };
 

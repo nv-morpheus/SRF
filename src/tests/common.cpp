@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022,NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +15,15 @@
  * limitations under the License.
  */
 
-syntax = "proto3";
+#include "common.hpp"
 
-import "google/protobuf/any.proto";
+std::shared_ptr<srf::internal::system::System> make_system(std::function<void(srf::Options&)> updater)
+{
+    auto options = std::make_shared<srf::Options>();
+    if (updater)
+    {
+        updater(*options);
+    }
+
+    return srf::internal::system::make_system(std::move(options));
+}

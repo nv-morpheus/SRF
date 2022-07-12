@@ -17,31 +17,32 @@
 
 #pragma once
 
-#include "internal/system/partition.hpp"
-#include "internal/system/system_provider.hpp"
+#include "internal/remote_descriptor/remote_descriptor.hpp"
+#include "internal/remote_descriptor/storage.hpp"
 
-#include <cstddef>
+#include <map>
 
-namespace srf::internal::system {
+namespace srf::internal::remote_descriptor {
 
-/**
- * @brief Extends SystemProvider to provide access to partition_id and partition details.
- *
- * This is a common base classes to resources that are tied to the flattened partitions list, e.g. cuda devices memory
- * resources.
- *
- * @note See Partitions for a more detailed description for the information contained.
- */
-class PartitionProvider : public SystemProvider
+class Manager final : public std::enable_shared_from_this<Manager>
 {
   public:
-    PartitionProvider(SystemProvider& system, std::size_t partition_id);
+    template <typename T>
+    RemoteDescriptor register_object(T&& object)
+    {
+        return store_object(TypedStorage<T>::create(std::move(object)));
+    }
 
-    std::size_t partition_id() const;
-    const Partition& partition() const;
+    std::size_t size() const;
 
   private:
-    std::size_t m_partition_id;
+    RemoteDescriptor store_object(std::unique_ptr<Storage> object);
+
+    void decrement_tokens(std::size_t object_id, std::size_t token_count);
+
+    std::map<std::size_t, std::unique_ptr<Storage>> m_stored_objects;
+
+    friend RemoteDescriptor;
 };
 
-}  // namespace srf::internal::system
+}  // namespace srf::internal::remote_descriptor

@@ -15,23 +15,34 @@
  * limitations under the License.
  */
 
-#include "internal/resources/partition_resources_base.hpp"
+#pragma once
 
-#include "internal/system/partition.hpp"
+#include "srf/codable/forward.hpp"
 
-#include <glog/logging.h>
+#include <memory>
 
-namespace srf::internal::resources {
+namespace srf::internal::remote_descriptor {
 
-PartitionResourceBase::PartitionResourceBase(runnable::Resources& runnable, std::size_t partition_id) :
-  system::PartitionProvider(runnable, partition_id),
-  m_runnable(runnable)
+class Manager;
+
+class RemoteDescriptor final
 {
-    CHECK_EQ(runnable.host_partition_id(), partition().host_partition_id());
-}
-runnable::Resources& PartitionResourceBase::runnable()
-{
-    return m_runnable;
-}
+    RemoteDescriptor(std::shared_ptr<Manager> manager, std::unique_ptr<srf::codable::protos::RemoteDescriptor> rd);
 
-}  // namespace srf::internal::resources
+  public:
+    ~RemoteDescriptor();
+
+    operator bool() const
+    {
+        return bool(m_descriptor);
+    }
+
+    void release();
+
+  private:
+    std::unique_ptr<srf::codable::protos::RemoteDescriptor> m_descriptor;
+    std::shared_ptr<Manager> m_manager;
+    friend Manager;
+};
+
+}  // namespace srf::internal::remote_descriptor

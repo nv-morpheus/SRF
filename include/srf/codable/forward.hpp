@@ -17,30 +17,13 @@
 
 #pragma once
 
-#include "internal/resources/forward.hpp"
-#include "internal/resources/partition_resources_base.hpp"
-#include "internal/runnable/resources.hpp"
-#include "internal/ucx/registration_cache.hpp"
+namespace srf::codable {
 
-#include "srf/utils/macros.hpp"
+class EncodedObject;
 
-#include <cstddef>
+namespace protos {
+class EncodedObject;
+class RemoteDescriptor;
+}  // namespace protos
 
-namespace srf::internal::network {
-
-class Resources final : private resources::PartitionResourceBase
-{
-  public:
-    Resources(resources::PartitionResourceBase& base, ucx::Resources& ucx, memory::HostResources& host);
-    ~Resources() final;
-
-    DELETE_COPYABILITY(Resources);
-    DEFAULT_MOVEABILITY(Resources);
-
-    data_plane::Resources& data_plane();
-
-  private:
-    std::unique_ptr<data_plane::Resources> m_data_plane;
-};
-
-}  // namespace srf::internal::network
+}  // namespace srf::codable

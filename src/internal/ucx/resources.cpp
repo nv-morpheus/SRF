@@ -17,8 +17,11 @@
 
 #include "internal/ucx/resources.hpp"
 
+#include "internal/resources/partition_resources_base.hpp"
 #include "internal/system/device_partition.hpp"
+#include "internal/system/fiber_task_queue.hpp"
 #include "internal/system/partition.hpp"
+#include "internal/ucx/endpoint.hpp"
 #include "internal/ucx/worker.hpp"
 
 #include "srf/core/task_queue.hpp"
@@ -32,12 +35,12 @@
 
 namespace srf::internal::ucx {
 
-Resources::Resources(runnable::Resources& _runnable_resources, std::size_t _partition_id) :
-  resources::PartitionResourceBase(_runnable_resources, _partition_id)
+Resources::Resources(resources::PartitionResourceBase& base, system::FiberTaskQueue& network_task_queue) :
+  resources::PartitionResourceBase(base),
+  m_network_task_queue(network_task_queue)
 {
     VLOG(1) << "constructing network resources for partition: " << partition_id() << " on partitions main task queue";
-    runnable()
-        .main()
+    m_network_task_queue
         .enqueue([this] {
             if (partition().has_device())
             {
@@ -49,33 +52,45 @@ Resources::Resources(runnable::Resources& _runnable_resources, std::size_t _part
                 SRF_CHECK_CUDA(cudaFree(tmp));
             }
 
+            // we need to create both the context and the workers to ensure ucx and cuda are aligned
+
             DVLOG(10) << "initializing ucx context";
             m_ucx_context = std::make_shared<Context>();
 
-            DVLOG(10) << "initialize a ucx data_plane worker for server";
-            m_worker_server = std::make_shared<Worker>(m_ucx_context);
-
-            DVLOG(10) << "initialize a ucx data_plane worker for client";
-            m_worker_client = std::make_shared<Worker>(m_ucx_context);
+            DVLOG(10) << "initialize a ucx data_plane worker";
+            m_worker = std::make_shared<Worker>(m_ucx_context);
 
             DVLOG(10) << "initialize the registration cache for this context";
             m_registration_cache = std::make_shared<RegistrationCache>(m_ucx_context);
 
             // flush any work that needs to be done by the workers
-            while (m_worker_server->progress() != 0) {}
-            while (m_worker_client->progress() != 0) {}
+            while (m_worker->progress() != 0) {}
         })
         .get();
-}
-
-Context& Resources::context()
-{
-    CHECK(m_ucx_context);
-    return *m_ucx_context;
 }
 
 void Resources::add_registration_cache_to_builder(RegistrationCallbackBuilder& builder)
 {
     builder.add_registration_cache(m_registration_cache);
 }
+
+srf::core::FiberTaskQueue& Resources::network_task_queue()
+{
+    return m_network_task_queue;
+}
+const RegistrationCache& Resources::registration_cache() const
+{
+    CHECK(m_registration_cache);
+    return *m_registration_cache;
+}
+Worker& Resources::worker()
+{
+    CHECK(m_worker);
+    return *m_worker;
+}
+std::shared_ptr<ucx::Endpoint> Resources::make_ep(const std::string& worker_address) const
+{
+    return std::make_shared<ucx::Endpoint>(m_worker, worker_address);
+}
+
 }  // namespace srf::internal::ucx
