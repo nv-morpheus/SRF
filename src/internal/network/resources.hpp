@@ -17,27 +17,30 @@
 
 #pragma once
 
+#include "internal/resources/forward.hpp"
 #include "internal/resources/partition_resources_base.hpp"
 #include "internal/runnable/resources.hpp"
 #include "internal/ucx/registration_cache.hpp"
 
-#include <cstddef>
+#include "srf/utils/macros.hpp"
 
-namespace srf::internal::ucx {
-class Resources;
-}
+#include <cstddef>
 
 namespace srf::internal::network {
 
 class Resources final : private resources::PartitionResourceBase
 {
   public:
-    Resources(runnable::Resources& _runnable_resources, std::size_t _partition_id, ucx::Resources& ucx);
+    Resources(resources::PartitionResourceBase& base, ucx::Resources& ucx, memory::HostResources& host);
+    ~Resources() final;
 
-    const ucx::RegistrationCache& registration_cache() const;
+    DELETE_COPYABILITY(Resources);
+    DEFAULT_MOVEABILITY(Resources);
+
+    data_plane::Resources& data_plane();
 
   private:
-    ucx::Resources& m_ucx;
+    std::unique_ptr<data_plane::Resources> m_data_plane;
 };
 
 }  // namespace srf::internal::network

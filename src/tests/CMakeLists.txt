@@ -40,10 +40,13 @@ add_custom_target(copy_fixture_files ALL
 
 # Keep all source files sorted!!!
 add_executable(test_srf_private
+  common.cpp
   nodes/common_nodes.cpp
   pipelines/multi_segment.cpp
   pipelines/single_segment.cpp
   segments/common_segments.cpp
+  test_codable.cpp
+  test_grpc.cpp
   test_main.cpp
   test_memory.cpp
   test_network.cpp
@@ -51,6 +54,7 @@ add_executable(test_srf_private
   test_partitions.cpp
   test_pipeline.cpp
   test_ranges.cpp
+  test_remote_descriptor.cpp
   test_resources.cpp
   test_runnable.cpp
   test_system.cpp
@@ -67,6 +71,7 @@ target_link_libraries(test_srf_private
   ucx::ucs
   ucx::ucp
   pthread
+  srf_test_protos
 )
 
 # Necessary include to prevent IWYU from showing absolute paths

@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 
-#include "test_srf.hpp"  // IWYU pragma: associated
+#include "common.hpp"
+
+#include "internal/data_plane/resources.hpp"
+#include "internal/resources/manager.hpp"
 
 #include "srf/codable/codable_protocol.hpp"
 #include "srf/codable/decode.hpp"
@@ -27,12 +30,16 @@
 #include "srf/codable/type_traits.hpp"
 #include "srf/protos/codable.pb.h"
 
+#include <glog/logging.h>
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>
 
-using namespace codable;
+using namespace srf;
+using namespace srf::codable;
 
 class CodableObject
 {
@@ -40,12 +47,12 @@ class CodableObject
     CodableObject()  = default;
     ~CodableObject() = default;
 
-    static CodableObject deserialize(const EncodedObject& buffer, std::size_t)
+    static CodableObject deserialize(const EncodedObject& buffer, std::size_t /*unused*/)
     {
         return CodableObject();
     }
 
-    void serialize(Encoded<CodableObject>&) {}
+    void serialize(Encoded<CodableObject>& /*unused*/) {}
 };
 
 class CodableObjectWithOptions
@@ -54,12 +61,12 @@ class CodableObjectWithOptions
     CodableObjectWithOptions()  = default;
     ~CodableObjectWithOptions() = default;
 
-    static CodableObjectWithOptions deserialize(const EncodedObject& encoding, std::size_t)
+    static CodableObjectWithOptions deserialize(const EncodedObject& encoding, std::size_t /*unused*/)
     {
         return CodableObjectWithOptions();
     }
 
-    void serialize(Encoded<CodableObjectWithOptions>&, const EncodingOptions& opts) {}
+    void serialize(Encoded<CodableObjectWithOptions>& /*unused*/, const EncodingOptions& opts) {}
 };
 
 class CodableViaExternalStruct
@@ -70,7 +77,7 @@ namespace srf::codable {
 template <>
 struct codable_protocol<CodableViaExternalStruct>
 {
-    void serialize(const CodableViaExternalStruct&, Encoded<CodableViaExternalStruct>&) {}
+    void serialize(const CodableViaExternalStruct& /*unused*/, Encoded<CodableViaExternalStruct>& /*unused*/) {}
 };
 
 };  // namespace srf::codable
@@ -80,7 +87,26 @@ namespace srf::codable {}
 struct NotCodableObject
 {};
 
-TEST_CLASS(Codable);
+class TestCodable : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        m_resources = std::make_unique<internal::resources::Manager>(
+            internal::system::SystemProvider(make_system([](Options& options) {
+                // todo(#114) - propose: remove this option entirely
+                options.architect_url("localhost:13337");
+                options.placement().resources_strategy(PlacementResources::Dedicated);
+            })));
+    }
+
+    void TearDown() override
+    {
+        m_resources.reset();
+    }
+
+    std::unique_ptr<internal::resources::Manager> m_resources;
+};
 
 TEST_F(TestCodable, Objects)
 {
@@ -108,22 +134,42 @@ TEST_F(TestCodable, String)
 {
     static_assert(is_codable<std::string>::value, "should be codable");
 
-    std::string str = "Hello Srf";
-    auto encoding   = encode(str);
-    auto decoding   = decode<std::string>(*encoding);
+    m_resources->partition(0)
+        .runnable()
+        .main()
+        .enqueue([this] {
+            std::string str = "Hello SRF";
+            auto str_block  = m_resources->partition(0).network()->data_plane().registration_cache().lookup(str.data());
+            EXPECT_FALSE(str_block);
 
-    EXPECT_STREQ(str.c_str(), decoding.c_str());
+            auto encoding = encode(str);
+            auto decoding = decode<std::string>(*encoding);
+            EXPECT_STREQ(str.c_str(), decoding.c_str());
+
+            // test to ensure that the unregistered string got copied to an internal registered buffer
+            auto view = encoding->memory_block(0);
+            auto view_block =
+                m_resources->partition(0).network()->data_plane().registration_cache().lookup(view.data());
+            EXPECT_TRUE(view_block);
+        })
+        .get();
 }
 
 TEST_F(TestCodable, Double)
 {
     static_assert(is_codable<double>::value, "should be codable");
 
-    double pi     = 3.14159;
-    auto encoding = encode(pi);
-    auto decoding = decode<double>(*encoding);
+    m_resources->partition(0)
+        .runnable()
+        .main()
+        .enqueue([] {
+            double pi     = 3.14159;
+            auto encoding = encode(pi);
+            auto decoding = decode<double>(*encoding);
 
-    EXPECT_DOUBLE_EQ(pi, decoding);
+            EXPECT_DOUBLE_EQ(pi, decoding);
+        })
+        .get();
 }
 
 TEST_F(TestCodable, Composite)
@@ -131,27 +177,33 @@ TEST_F(TestCodable, Composite)
     static_assert(is_codable<std::string>::value, "should be codable");
     static_assert(is_codable<std::uint64_t>::value, "should be codable");
 
-    std::string str   = "Hello Srf";
-    std::uint64_t ans = 42;
+    m_resources->partition(0)
+        .runnable()
+        .main()
+        .enqueue([] {
+            std::string str   = "Hello Srf";
+            std::uint64_t ans = 42;
 
-    EncodedObject encoding;
+            EncodedObject encoding;
 
-    encode(str, encoding);
-    encode(ans, encoding);
+            encode(str, encoding);
+            encode(ans, encoding);
 
-    EXPECT_EQ(encoding.object_count(), 2);
-    EXPECT_EQ(encoding.descriptor_count(), 2);
+            EXPECT_EQ(encoding.object_count(), 2);
+            EXPECT_EQ(encoding.descriptor_count(), 2);
 
-    auto decoded_str = decode<std::string>(encoding, 0);
-    auto decoded_ans = decode<std::uint64_t>(encoding, 1);
+            auto decoded_str = decode<std::string>(encoding, 0);
+            auto decoded_ans = decode<std::uint64_t>(encoding, 1);
 
-    EXPECT_STREQ(str.c_str(), decoded_str.c_str());
-    EXPECT_EQ(ans, decoded_ans);
+            EXPECT_STREQ(str.c_str(), decoded_str.c_str());
+            EXPECT_EQ(ans, decoded_ans);
+        })
+        .get();
 }
 
 TEST_F(TestCodable, EncodedObjectProto)
 {
-    static_assert(codable::is_encodable<protos::EncodedObject>::value, "should be encodable");
-    static_assert(codable::is_decodable<protos::EncodedObject>::value, "should be decodable");
-    static_assert(is_codable<protos::EncodedObject>::value, "should be codable");
+    static_assert(codable::is_encodable<srf::codable::protos::EncodedObject>::value, "should be encodable");
+    static_assert(codable::is_decodable<srf::codable::protos::EncodedObject>::value, "should be decodable");
+    static_assert(is_codable<srf::codable::protos::EncodedObject>::value, "should be codable");
 }

@@ -23,6 +23,7 @@
 #include "internal/ucx/resources.hpp"
 
 #include "srf/core/task_queue.hpp"
+#include "srf/cuda/device_guard.hpp"
 #include "srf/memory/adaptors.hpp"
 #include "srf/memory/resources/arena_resource.hpp"
 #include "srf/memory/resources/device/cuda_malloc_resource.hpp"
@@ -46,17 +47,18 @@
 
 namespace srf::internal::memory {
 
-DeviceResources::DeviceResources(runnable::Resources& runnable,
-                                 std::size_t partition_id,
-                                 std::optional<ucx::Resources>& ucx) :
-  resources::PartitionResourceBase(runnable, partition_id)
+DeviceResources::DeviceResources(resources::PartitionResourceBase& base, std::optional<ucx::Resources>& ucx) :
+  resources::PartitionResourceBase(base)
 {
     CHECK(partition().has_device());
 
-    runnable.main()
+    runnable()
+        .main()
         .enqueue([this, &ucx] {
             std::stringstream device_prefix;
             device_prefix << "cuda_malloc:" << cuda_device_id();
+
+            DeviceGuard guard(cuda_device_id());
 
             auto cuda_malloc = std::make_unique<srf::memory::cuda_malloc_resource>(cuda_device_id());
             m_system         = srf::memory::make_shared_resource<srf::memory::logging_resource>(std::move(cuda_malloc),
@@ -64,7 +66,7 @@ DeviceResources::DeviceResources(runnable::Resources& runnable,
 
             if (ucx)
             {
-                m_registered = ucx->adapt_to_registered_resource(m_system);
+                m_registered = ucx->adapt_to_registered_resource(m_system, cuda_device_id());
             }
             else
             {

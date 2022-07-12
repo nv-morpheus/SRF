@@ -66,7 +66,7 @@ TEST_F(TestMemory, UcxRegisterePinnedMemoryArena)
 
     auto pinned    = std::make_unique<pinned_memory_resource>();
     auto logger    = memory::make_unique_resource<logging_resource>(std::move(pinned), "pinned_resource");
-    auto ucx       = memory::make_shared_resource<internal::ucx::RegistrationResource>(std::move(logger), regcache);
+    auto ucx       = memory::make_shared_resource<internal::ucx::RegistrationResource>(std::move(logger), regcache, 0);
     auto arena     = memory::make_shared_resource<arena_resource>(ucx, 64_MiB);
     auto arena_log = memory::make_shared_resource<logging_resource>(arena, "arena_resource");
 
@@ -74,11 +74,12 @@ TEST_F(TestMemory, UcxRegisterePinnedMemoryArena)
 
     auto ucx_block = ucx->registration_cache().lookup(md.data());
 
-    CHECK(ucx_block.local_handle());
-    CHECK(ucx_block.remote_handle());
-    CHECK(ucx_block.remote_handle_size());
+    EXPECT_TRUE(ucx_block);
+    EXPECT_TRUE(ucx_block->local_handle());
+    EXPECT_TRUE(ucx_block->remote_handle());
+    EXPECT_TRUE(ucx_block->remote_handle_size());
 
-    VLOG(1) << "ucx rbuffer size: " << ucx_block.remote_handle_size();
+    VLOG(1) << "ucx rbuffer size: " << ucx_block->remote_handle_size();
 }
 
 TEST_F(TestMemory, UcxRegisteredCudaMemoryArena)
@@ -88,7 +89,7 @@ TEST_F(TestMemory, UcxRegisteredCudaMemoryArena)
 
     auto cuda      = std::make_unique<cuda_malloc_resource>(0);
     auto logger    = memory::make_unique_resource<logging_resource>(std::move(cuda), "cuda_resource");
-    auto ucx       = memory::make_shared_resource<internal::ucx::RegistrationResource>(std::move(logger), regcache);
+    auto ucx       = memory::make_shared_resource<internal::ucx::RegistrationResource>(std::move(logger), regcache, 0);
     auto arena     = memory::make_shared_resource<arena_resource>(ucx, 64_MiB);
     auto arena_log = memory::make_shared_resource<logging_resource>(arena, "arena_resource");
 
@@ -96,11 +97,12 @@ TEST_F(TestMemory, UcxRegisteredCudaMemoryArena)
 
     auto ucx_block = ucx->registration_cache().lookup(md.data());
 
-    CHECK(ucx_block.local_handle());
-    CHECK(ucx_block.remote_handle());
-    CHECK(ucx_block.remote_handle_size());
+    EXPECT_TRUE(ucx_block);
+    EXPECT_TRUE(ucx_block->local_handle());
+    EXPECT_TRUE(ucx_block->remote_handle());
+    EXPECT_TRUE(ucx_block->remote_handle_size());
 
-    VLOG(1) << "ucx rbuffer size: " << ucx_block.remote_handle_size();
+    VLOG(1) << "ucx rbuffer size: " << ucx_block->remote_handle_size();
 }
 
 TEST_F(TestMemory, CallbackAdaptor)

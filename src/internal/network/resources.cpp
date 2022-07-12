@@ -17,18 +17,40 @@
 
 #include "internal/network/resources.hpp"
 
+#include "internal/data_plane/resources.hpp"
+#include "internal/data_plane/server.hpp"
+#include "internal/memory/host_resources.hpp"
+#include "internal/resources/forward.hpp"
+#include "internal/resources/partition_resources_base.hpp"
+#include "internal/ucx/registration_cache.hpp"
 #include "internal/ucx/resources.hpp"
 
 namespace srf::internal::network {
 
-Resources::Resources(runnable::Resources& _runnable_resources, std::size_t _partition_id, ucx::Resources& ucx) :
-  resources::PartitionResourceBase(_runnable_resources, _partition_id),
-  m_ucx(ucx)
-{}
-
-const ucx::RegistrationCache& Resources::registration_cache() const
+Resources::Resources(resources::PartitionResourceBase& base, ucx::Resources& ucx, memory::HostResources& host) :
+  resources::PartitionResourceBase(base)
 {
-    return m_ucx.registration_cache();
+    // construct resources on the srf_network task queue thread
+    ucx.network_task_queue()
+        .enqueue([this, &base, &ucx, &host] {
+            // initialize data plane services - server / client
+            m_data_plane = std::make_unique<data_plane::Resources>(base, ucx, host);
+        })
+        .get();
 }
 
+Resources::~Resources()
+{
+    if (m_data_plane)
+    {
+        m_data_plane->service_stop();
+        m_data_plane->service_await_join();
+    }
+}
+
+data_plane::Resources& Resources::data_plane()
+{
+    CHECK(m_data_plane);
+    return *m_data_plane;
+}
 }  // namespace srf::internal::network

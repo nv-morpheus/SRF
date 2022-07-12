@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2021 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-#include "internal/data_plane/client_worker.hpp"
+syntax = "proto3";
 
-#include "internal/ucx/worker.hpp"
+package srf.testing;
 
-#include <boost/fiber/operations.hpp>
-#include <ucp/api/ucp_compat.h>
-
-namespace srf::internal::data_plane {
-
-void DataPlaneClientWorker::on_data(void*&& data)
-{
-    while (ucp_request_is_completed(data) == 0)
-    {
-        if (m_worker->progress() != 0U)
-        {
-            continue;
-        }
-        boost::this_fiber::yield();
-    }
-    ucp_request_release(data);
+service TestService {
+   rpc Unary (Input) returns (Output) {}
+   rpc Streaming (stream Input) returns (stream Output) {}
 }
 
-}  // namespace srf::internal::data_plane
+message Input {
+    uint64 batch_id = 1;
+}
+
+message Output {
+     uint64 batch_id = 1;
+}
