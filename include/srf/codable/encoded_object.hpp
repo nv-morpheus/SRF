@@ -21,7 +21,6 @@
 #include "srf/exceptions/runtime_error.hpp"
 #include "srf/memory/buffer.hpp"
 #include "srf/memory/buffer_view.hpp"
-#include "srf/memory/resources/memory_resource.hpp"
 #include "srf/protos/codable.pb.h"
 #include "srf/utils/macros.hpp"
 
@@ -30,7 +29,7 @@
 
 #include <cstddef>
 #include <map>
-#include <memory>
+#include <string>
 #include <typeindex>
 #include <utility>
 #include <vector>
@@ -125,7 +124,7 @@ class EncodedObject
      * @param view
      * @return protos::RemoteMemoryDescriptor
      */
-    static protos::RemoteMemoryDescriptor encode_descriptor(memory::const_buffer_view view);
+    static protos::RemoteMemoryDescriptor encode_descriptor(memory::const_buffer_view view, std::string keys);
 
     /**
      * @brief Converts a RemoteMemoryDescriptor proto to a mutable memory block
@@ -214,7 +213,7 @@ class EncodedObject
      * @param bytes
      * @return std::size_t
      */
-    std::size_t add_buffer(std::shared_ptr<memory::memory_resource> mr, std::size_t bytes);
+    std::size_t add_buffer(memory::buffer&& buffer);
 
     /**
      * @brief Used to push a Object message with the starting descriptor index and type_index to the main proto

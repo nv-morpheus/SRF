@@ -118,16 +118,19 @@ TEST_F(TestNetwork, ResourceManager)
     auto h_ucx_block = resources->partition(0).network()->data_plane().registration_cache().lookup(h_buffer_0.data());
     auto d_ucx_block = resources->partition(0).network()->data_plane().registration_cache().lookup(d_buffer_0.data());
 
-    EXPECT_EQ(h_ucx_block.bytes(), 32_MiB);
-    EXPECT_EQ(d_ucx_block.bytes(), 64_MiB);
+    EXPECT_TRUE(h_ucx_block);
+    EXPECT_TRUE(d_ucx_block);
 
-    EXPECT_TRUE(h_ucx_block.local_handle());
-    EXPECT_TRUE(h_ucx_block.remote_handle());
-    EXPECT_TRUE(h_ucx_block.remote_handle_size());
+    EXPECT_EQ(h_ucx_block->bytes(), 32_MiB);
+    EXPECT_EQ(d_ucx_block->bytes(), 64_MiB);
 
-    EXPECT_TRUE(d_ucx_block.local_handle());
-    EXPECT_TRUE(d_ucx_block.remote_handle());
-    EXPECT_TRUE(d_ucx_block.remote_handle_size());
+    EXPECT_TRUE(h_ucx_block->local_handle());
+    EXPECT_TRUE(h_ucx_block->remote_handle());
+    EXPECT_TRUE(h_ucx_block->remote_handle_size());
+
+    EXPECT_TRUE(d_ucx_block->local_handle());
+    EXPECT_TRUE(d_ucx_block->remote_handle());
+    EXPECT_TRUE(d_ucx_block->remote_handle_size());
 
     // the following can not assumed to be true
     // the remote handle size is proportional to the number and types of ucx transports available in a given domain
@@ -220,8 +223,10 @@ TEST_F(TestNetwork, CommsGet)
     auto src = resources->partition(0).host().make_buffer(1_MiB);
     auto dst = resources->partition(1).host().make_buffer(1_MiB);
 
-    auto src_keys =
-        resources->partition(0).network()->data_plane().registration_cache().lookup(src.data()).packed_remote_keys();
+    // here we really want a monad on the optional
+    auto block = resources->partition(0).network()->data_plane().registration_cache().lookup(src.data());
+    EXPECT_TRUE(block);
+    auto src_keys = block->packed_remote_keys();
 
     auto* src_data    = static_cast<std::size_t*>(src.data());
     std::size_t count = 1_MiB / sizeof(std::size_t);

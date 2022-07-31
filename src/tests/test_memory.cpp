@@ -39,6 +39,7 @@
 #include <atomic>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <type_traits>
 #include <utility>
@@ -74,11 +75,12 @@ TEST_F(TestMemory, UcxRegisterePinnedMemoryArena)
 
     auto ucx_block = ucx->registration_cache().lookup(md.data());
 
-    CHECK(ucx_block.local_handle());
-    CHECK(ucx_block.remote_handle());
-    CHECK(ucx_block.remote_handle_size());
+    EXPECT_TRUE(ucx_block);
+    EXPECT_TRUE(ucx_block->local_handle());
+    EXPECT_TRUE(ucx_block->remote_handle());
+    EXPECT_TRUE(ucx_block->remote_handle_size());
 
-    VLOG(1) << "ucx rbuffer size: " << ucx_block.remote_handle_size();
+    VLOG(1) << "ucx rbuffer size: " << ucx_block->remote_handle_size();
 }
 
 TEST_F(TestMemory, UcxRegisteredCudaMemoryArena)
@@ -96,11 +98,12 @@ TEST_F(TestMemory, UcxRegisteredCudaMemoryArena)
 
     auto ucx_block = ucx->registration_cache().lookup(md.data());
 
-    CHECK(ucx_block.local_handle());
-    CHECK(ucx_block.remote_handle());
-    CHECK(ucx_block.remote_handle_size());
+    EXPECT_TRUE(ucx_block);
+    EXPECT_TRUE(ucx_block->local_handle());
+    EXPECT_TRUE(ucx_block->remote_handle());
+    EXPECT_TRUE(ucx_block->remote_handle_size());
 
-    VLOG(1) << "ucx rbuffer size: " << ucx_block.remote_handle_size();
+    VLOG(1) << "ucx rbuffer size: " << ucx_block->remote_handle_size();
 }
 
 TEST_F(TestMemory, CallbackAdaptor)
